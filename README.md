@@ -123,3 +123,42 @@ python .\build_course_docs.py --course "软件测试" --weeks 18 --model gpt-4o-
 
 ---
 如需进一步定制（UI 两列布局、更大输入区、模板个性化、接入更多模型等），欢迎提交 Issue 或 PR。
+
+## UI 预览
+![UI 预览](./docs/ui-preview.svg)
+
+## 环境变量清单与说明
+| 变量名 | 是否必需 | 何时使用 | 示例值 | 说明 |
+|---|---|---|---|---|
+| OPENAI_API_KEY | 是（至少其一） | 所有模型 | sk-... | 与 DEEPSEEK_API_KEY 二选一，二者都提供时以 UI 选择的模型为准 |
+| DEEPSEEK_API_KEY | 是（至少其一） | 选择 DeepSeek 时 | sk-... | 选择 DeepSeek 时将自动配置 base_url 指向 deepseek |
+| OPENAI_BASE_URL | 否 | 需要自定义 OpenAI 兼容网关时 | https://api.deepseek.com | 若选择 DeepSeek，会自动设置为该地址；OpenAI 官方通常不需要设置 |
+| LLM_BASE_URL | 否 | 备用 base_url 变量名 | http(s)://your-gateway | 若未设置 OPENAI_BASE_URL，会尝试读取该变量 |
+| PORT | 否 | 启动 UI 时 | 5000/5001/5002 | 若未设置则默认 5000（也可用 FLASK_RUN_PORT） |
+| FLASK_RUN_PORT | 否 | 启动 UI 时 | 5000/5001/5002 | 与 PORT 等价，任一生效即可 |
+
+说明：
+- 表单提交时，后端仅在子进程环境中注入 Key 与 base_url，不写入磁盘。
+- 选择 DeepSeek 模型时，会自动设置 OPENAI_BASE_URL=https://api.deepseek.com。
+
+## 贡献指南
+- 分支策略
+  - main：稳定可用的主分支
+  - feature/*：功能开发分支，例如 feature/ui-tweaks、feature/azure-support
+  - fix/*：缺陷修复分支，例如 fix/validate-weeks
+- 提交信息规范（Conventional Commits）
+  - feat: 新功能
+  - fix: 修复缺陷
+  - docs: 文档更新
+  - chore: 杂项（构建脚本、依赖小升级等）
+  - refactor: 重构（无功能变化）
+  - test: 测试相关
+  - build/ci: 构建或 CI 变更
+  - revert: 回滚
+  - 示例：
+    - feat(ui): 扩大“功能说明”输入框尺寸，优化表单布局
+    - fix(api): 校验周数输入并提示
+
+## License
+- 本项目采用 MIT 许可证。你可以在遵循许可条款的前提下自由使用、修改与分发。
+- 详见仓库根目录的 LICENSE 文件。

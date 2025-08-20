@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="700" viewBox="0 0 1120 700">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f7f9fc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <style>
+      .title{font: 600 28px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#1f2937}
+      .sub{font: 400 16px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#4b5563}
+      .label{font: 600 14px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#111827}
+      .hint{font: 400 12px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#6b7280}
+      .btn{font: 600 16px/1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;fill:#fff}
+      .mono{font: 600 12px/1.4 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;fill:#1f2937}
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1120" height="700" fill="url(#bg)"/>
+
+  <!-- App header -->
+  <rect x="120" y="60" width="880" height="40" rx="8" fill="#111827" opacity="0.95"/>
+  <text x="140" y="86" fill="#ffffff" class="title">教学大纲与教案生成器 · Flask UI</text>
+
+  <!-- Card -->
+  <rect x="120" y="120" width="880" height="480" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="150" y="160" class="sub">填写课程信息后，一键生成 Markdown 大纲与 JSON 教案，产物存于 output/ 目录。</text>
+
+  <!-- Fields (visual placeholders) -->
+  <text x="150" y="200" class="label">课程名称</text>
+  <rect x="150" y="210" width="360" height="34" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+
+  <text x="540" y="200" class="label">总周数</text>
+  <rect x="540" y="210" width="120" height="34" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="670" y="231" class="hint">建议：最后一周复习与综合提升</text>
+
+  <text x="150" y="264" class="label">排除项（逗号分隔，可空）</text>
+  <rect x="150" y="274" width="810" height="34" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+
+  <text x="150" y="326" class="label">教学大纲的功能说明（可空，不作为排除项）</text>
+  <rect x="150" y="336" width="810" height="120" rx="8" fill="#f9fafb" stroke="#e5e7eb"/>
+
+  <text x="150" y="476" class="label">大模型选择</text>
+  <rect x="150" y="486" width="300" height="34" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="460" y="509" class="mono">deepseek-chat ｜ gpt-4o-mini</text>
+
+  <text x="150" y="530" class="label">API Key</text>
+  <rect x="150" y="540" width="480" height="34" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+
+  <!-- Submit button -->
+  <rect x="740" y="538" width="220" height="38" rx="8" fill="#2563eb"/>
+  <text x="792" y="563" class="btn">生成文档</text>
+
+  <!-- Footer note -->
+  <text x="120" y="630" class="hint">预览图示意 UI 布局（非真实截图）。可在浏览器访问 http://127.0.0.1:5000/ 查看实际效果。</text>
+</svg>
