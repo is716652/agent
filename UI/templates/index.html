@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>教学大纲与教案生成</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: #f6f7fb; margin: 0; }
+    .container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 100%; max-width: 760px; background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 28px; }
+    h1 { margin: 0 0 16px; font-size: 22px; color: #111827; text-align: center; }
+    p.desc { margin: 0 0 24px; color: #6b7280; font-size: 14px; text-align: center; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 8px; font-size: 14px; color: #374151; }
+    input[type="text"], input[type="number"], input[type="password"], select { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; font-size: 14px; color: #111827; }
+    textarea { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; font-size: 14px; color: #111827; min-height: 160px; resize: vertical; }
+    input::placeholder, textarea::placeholder { color: #9ca3af; }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+    .actions { margin-top: 24px; display: flex; gap: 12px; }
+    button { flex: 1; padding: 10px 14px; background: #2563eb; color: #fff; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; transition: background 0.2s ease; }
+    button:hover { background: #1e40af; }
+    .msg { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+    .msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>教学大纲与教案生成</h1>
+      <p class="desc">填写信息并提交，系统将生成 Markdown 大纲与 JSON 教案，存入 output 目录。</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="msg {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="/">
+        <div class="form-group">
+          <label for="course">课程名称</label>
+          <input type="text" id="course" name="course" placeholder="如：软件测试" required />
+        </div>
+        <div class="form-group">
+          <label for="weeks">总周数</label>
+          <input type="number" id="weeks" name="weeks" value="18" min="1" required />
+          <div id="weeks-hint" class="hint" style="margin-top:6px;color:#666;font-size:13px;"></div>
+        </div>
+        <div class="form-group">
+          <label for="exclude">排除项（可留空，逗号分隔）</label>
+          <input type="text" id="exclude" name="exclude" placeholder="例如：ChatGPT、生成代码、过度理论化" />
+        </div>
+        <div class="form-group">
+          <label for="features">教学大纲的功能说明（不排除项，可留空）</label>
+          <textarea id="features" name="features" rows="8" placeholder="例如：强调项目驱动与企业真实场景；覆盖功能测试、接口测试、性能测试基础；强化用例设计与缺陷分析；包含至少2次综合实训与一次结课项目评审"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="model">大模型选择</label>
+          <select id="model" name="model">
+            <option value="deepseek-chat" selected>DeepSeek - deepseek-chat</option>
+            <option value="gpt-4o-mini">OpenAI - gpt-4o-mini</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="api_key">API Key</label>
+          <input type="password" id="api_key" name="api_key" placeholder="粘贴你的模型 Key（不显示明码）" required />
+        </div>
+        <div class="actions">
+          <button type="submit">生成文档</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function updateWeeksHint() {
+      const weeksInput = document.getElementById('weeks');
+      const hint = document.getElementById('weeks-hint');
+      const v = parseInt(weeksInput.value, 10);
+      if (!isNaN(v)) {
+        if (v === 18) {
+          hint.textContent = '建议 18 周，最后一周复习与综合提升';
+        } else if (v === 20) {
+          hint.textContent = '建议 最后一周复习与综合提升';
+        } else {
+          hint.textContent = '建议 最后一周安排复习与综合提升';
+        }
+      } else {
+        hint.textContent = '';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', updateWeeksHint);
+    document.getElementById('weeks').addEventListener('input', updateWeeksHint);
+  </script>
+</body>
+</html>
