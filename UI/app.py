@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash
 
@@ -26,6 +27,7 @@ def index():
         
         # 新增：授课信息字段
         teacher = (request.form.get('teacher') or '').strip()
+        class_name = (request.form.get('class_name') or '').strip()
         location = (request.form.get('location') or '').strip()
         assessment = (request.form.get('assessment') or '').strip()
         class_size_raw = (request.form.get('class_size') or '').strip()
@@ -100,7 +102,7 @@ def index():
                     '{授课科目}': course,
                     '{总周数}': str(weeks),
                     '{授课老师}': teacher,
-                    '{授课班级}': '',  # 暂无对应输入项
+                    '{授课班级}': class_name,  # 新增：来自表单
                     '{班级人数}': class_size,
                     '{授课时间}': teaching_time,
                     '{周学时}': (f"{weekly_hours} 学时/周" if weekly_hours else ''),
@@ -134,6 +136,65 @@ def index():
             flash('未找到生成的文件，请检查日志输出。')
             return render_template('index.html', raw_output=proc.stdout)
 
+        # 新增：将 output 结果拷贝到 IndependentRunningPackage/data 并执行单文件脚本，随后将结果放入 docs
+        try:
+            irp_dir = BASE_DIR / 'IndependentRunningPackage'
+            data_dir = irp_dir / 'data'
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            # 拷贝三份文件（存在则覆盖）
+            to_copy = [
+                (OUTPUT_DIR / marks_file),
+                (OUTPUT_DIR / plan_file),
+                (OUTPUT_DIR / syllabus_file),
+            ]
+            for src in to_copy:
+                if src.exists():
+                    shutil.copy2(str(src), str(data_dir / src.name))
+
+            # 执行独立运行包脚本
+            script_path = irp_dir / 'build_word_from_templates.py'
+            if script_path.exists():
+                proc2 = subprocess.run(
+                    [sys.executable, str(script_path)],
+                    cwd=str(irp_dir),
+                    capture_output=True,
+                    text=True,
+                    encoding='utf-8'
+                )
+                if proc2.returncode != 0:
+                    flash('教案 Word 生成脚本执行失败：' + (proc2.stderr or proc2.stdout))
+                else:
+                    # 将生成结果复制到 docs 目录
+                    docs_dir = BASE_DIR / 'docs'
+                    docs_dir.mkdir(parents=True, exist_ok=True)
+                    expected_name = f"教案-{course}.docx"
+                    src_docx = irp_dir / expected_name
+                    target_path = docs_dir / expected_name
+                    found = False
+                    if src_docx.exists():
+                        shutil.copy2(str(src_docx), str(target_path))
+                        found = True
+                    else:
+                        # 兜底：按名称模式查找
+                        for p in irp_dir.glob('教案-*.docx'):
+                            if course in p.stem:
+                                shutil.copy2(str(p), str(target_path))
+                                found = True
+                                break
+                    # 如果已经复制成功，则将下载链接加入返回
+                    if found and target_path.exists():
+                        try:
+                            links['word'] = url_for('download_docs', filename=expected_name)
+                        except Exception:
+                            pass
+                    if not found:
+                        flash('未在独立运行包目录找到生成的教案 Word 文件。')
+            else:
+                flash('未找到独立运行包脚本：IndependentRunningPackage/build_word_from_templates.py')
+        except Exception as e:
+            flash(f'提示：自动汇入独立运行包并生成 Word 失败：{e}')
+
         return render_template('result.html', course=course, links=links, raw_output=proc.stdout)
 
     return render_template('index.html')
@@ -145,6 +206,13 @@ def download(filename):
     return send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
 
 
+# 新增：从 docs 目录下载教案 Word 文件
+@app.route('/download-docs/<path:filename>')
+def download_docs(filename):
+    docs_dir = BASE_DIR / 'docs'
+    return send_from_directory(docs_dir, filename, as_attachment=True)
+
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT') or os.environ.get('FLASK_RUN_PORT') or 5000)
+    port = int(os.environ.get('PORT') or os.environ.get('FLASK_RUN_PORT') or 89)
     app.run(host='0.0.0.0', port=port)
