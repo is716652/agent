@@ -21,6 +21,11 @@
     button:hover { background: #1e40af; }
     .msg { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
     .msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    /* 新增：授课信息面板样式 */
+    .panel { margin: 16px 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
+    .panel h2 { margin: 0 0 12px; font-size: 16px; color: #111827; }
+    .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .panel-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -55,6 +60,51 @@
           <label for="features">教学大纲的功能说明（不排除项，可留空）</label>
           <textarea id="features" name="features" rows="8" placeholder="例如：强调项目驱动与企业真实场景；覆盖功能测试、接口测试、性能测试基础；强化用例设计与缺陷分析；包含至少2次综合实训与一次结课项目评审"></textarea>
         </div>
+        
+        <!-- 新增：授课信息面板 -->
+        <div class="panel">
+          <h2>授课信息</h2>
+          <div class="panel-grid">
+            <div class="form-group">
+              <label for="teacher">授课老师</label>
+              <input type="text" id="teacher" name="teacher" placeholder="如：张老师" />
+            </div>
+            <div class="form-group">
+              <label for="location">授课地点</label>
+              <input type="text" id="location" name="location" placeholder="如：教学楼A-305" />
+            </div>
+            <div class="form-group">
+              <label for="assessment">考核方式</label>
+              <select id="assessment" name="assessment">
+                <option value="考察" selected>考察</option>
+                <option value="考试">考试</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="class_size">班级人数</label>
+              <input type="number" id="class_size" name="class_size" min="1" max="99" step="1" inputmode="numeric" pattern="\\d*" placeholder="单位：人（1-99）" title="请输入 1-99 的整数" />
+            </div>
+            <div class="form-group">
+              <label for="weekly_hours">周学时</label>
+              <select id="weekly_hours" name="weekly_hours">
+                <option value="4" selected>4 学时/周</option>
+                <option value="2">2 学时/周</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="teaching_time">授课时间</label>
+              <select id="teaching_time" name="teaching_time">
+                <option value="1234节" selected>1234节</option>
+                <option value="5678节">5678节</option>
+                <option value="12节">12节</option>
+                <option value="34节">34节</option>
+                <option value="56节">56节</option>
+                <option value="78节">78节</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
         <div class="form-group">
           <label for="model">大模型选择</label>
           <select id="model" name="model">
@@ -74,24 +124,53 @@
   </div>
 
   <script>
-    function updateWeeksHint() {
-      const weeksInput = document.getElementById('weeks');
-      const hint = document.getElementById('weeks-hint');
-      const v = parseInt(weeksInput.value, 10);
-      if (!isNaN(v)) {
-        if (v === 18) {
-          hint.textContent = '建议 18 周，最后一周复习与综合提升';
-        } else if (v === 20) {
-          hint.textContent = '建议 最后一周复习与综合提升';
-        } else {
-          hint.textContent = '建议 最后一周安排复习与综合提升';
-        }
-      } else {
-        hint.textContent = '';
-      }
-    }
-    document.addEventListener('DOMContentLoaded', updateWeeksHint);
-    document.getElementById('weeks').addEventListener('input', updateWeeksHint);
+     function updateWeeksHint() {
+       const weeksInput = document.getElementById('weeks');
+       const hint = document.getElementById('weeks-hint');
+       const v = parseInt(weeksInput.value, 10);
+       if (!isNaN(v)) {
+         if (v === 18) {
+           hint.textContent = '建议 18 周，最后一周复习与综合提升';
+         } else if (v === 20) {
+           hint.textContent = '建议 最后一周复习与综合提升';
+         } else {
+           hint.textContent = '建议 最后一周安排复习与综合提升';
+         }
+       } else {
+         hint.textContent = '';
+       }
+     }
+     document.addEventListener('DOMContentLoaded', updateWeeksHint);
+     document.getElementById('weeks').addEventListener('input', updateWeeksHint);
+
+     // 新增：班级人数校验（只能为 1-99 的整数）
+     document.addEventListener('DOMContentLoaded', function() {
+       const form = document.querySelector('form');
+       const classSize = document.getElementById('class_size');
+       if (!form || !classSize) return;
+       const validateClassSize = () => {
+         const v = (classSize.value || '').trim();
+         classSize.setCustomValidity('');
+         if (v === '') return true; // 可选项，允许不填
+         if (!/^\d+$/.test(v)) {
+           classSize.setCustomValidity('班级人数只能为整数');
+           return false;
+         }
+         const n = parseInt(v, 10);
+         if (n < 1 || n >= 100) {
+           classSize.setCustomValidity('班级人数须为 1-99 的整数');
+           return false;
+         }
+         return true;
+       };
+       classSize.addEventListener('input', validateClassSize);
+       form.addEventListener('submit', function(e) {
+         if (!validateClassSize() || !form.checkValidity()) {
+           e.preventDefault();
+           classSize.reportValidity();
+         }
+       });
+     });
   </script>
 </body>
 </html>
