@@ -1,0 +1,37 @@
+快速使用说明（UI 版）
+
+一、文件说明
+- teach_ui.exe：可视化界面，生成教学大纲（Markdown）、教案 JSON，以及调用底层生成 Word（DOCX）
+- start-teach-ui.bat / start-teach-ui.ps1：便捷启动脚本
+- 首次运行会自动在当前目录创建：
+  - output：大纲与教案 JSON 输出目录
+  - docs：Word 教案（DOCX）输出目录
+
+二、启动方式（推荐任一）
+1) 双击 start-teach-ui.bat（默认端口 5001）
+   - 如需更改端口，编辑 bat 中的 PORT=xxxx
+   - 如需预置 Key，取消相应行注释并填入你的 Key（DEEPSEEK_API_KEY 或 OPENAI_API_KEY）
+2) 右键 start-teach-ui.ps1 选择“使用 PowerShell 运行”（默认端口 5001）
+   - 也可在 PowerShell 中带参数运行：
+     .\start-teach-ui.ps1 -Port 5002
+3) 直接从 PowerShell 启动 exe：
+   $env:PORT="5001"
+   $env:DEEPSEEK_API_KEY="你的Key"   （或 $env:OPENAI_API_KEY="你的Key"）
+   .\teach_ui.exe
+
+说明：
+- 端口读取顺序：PORT 或 FLASK_RUN_PORT，否则默认 89。
+- 若通过资源管理器“双击 teach_ui.exe”启动，不会继承你在 PowerShell 窗口里设置的环境变量，请优先用上述脚本或在同一 PowerShell 窗口内启动。
+- 选择 DeepSeek 模型时，程序会自动设置 OPENAI_BASE_URL=https://api.deepseek.com；你只需提供 DEEPSEEK_API_KEY。
+
+三、使用流程
+1) 浏览器打开 http://127.0.0.1:端口/（脚本会自动打开）
+2) 填写课程名称、总周数、可选的授课信息与模型 Key
+3) 点击“生成”，完成后结果页会出现 4 个下载按钮（含 DOCX）
+4) 输出文件位于当前目录的 output/ 与 docs/
+
+四、常见问题
+- 端口被占用：修改 PORT/FLASK_RUN_PORT 为其他值后再启动。
+- 未显示 DOCX 下载按钮：查看页面红色错误提示；检查 docs/ 是否生成 DOCX；确认 mcp_wrapper.exe 与 build_word.exe 与 teach_ui.exe 同目录。
+- PowerShell 执行策略限制：右键脚本选择“使用 PowerShell 运行”，或在当前窗口运行命令：
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass

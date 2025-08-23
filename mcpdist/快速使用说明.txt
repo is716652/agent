@@ -1,0 +1,43 @@
+快速使用说明（命令行版：mcpdist）
+
+目录内容
+- mcp_wrapper.exe：推荐入口，负责调用 build_word.exe 并处理输入与日志
+- build_word.exe：底层生成器，通常由 mcp_wrapper.exe 调用
+- README.txt：示例与参数说明
+
+一、最简用法（自动发现输入文件）
+将以下文件放到本目录（或 mcp_wrapper.exe 同目录）：
+- 课程名称-教学大纲.md（大纲）
+- 课程名称-周数-data.json（教案 JSON）
+- 教学大纲模板（可选，若已打包到 EXE 可省略）
+然后执行：
+  .\mcp_wrapper.exe --output-dir ".\docs" --subject "软件测试" --verbose
+说明：上述方式会让底层自动发现输入文件，失败概率最低。
+
+二、显式参数用法（给定文件路径）
+  .\mcp_wrapper.exe ^
+    --md ".\软件测试-教学大纲.md" ^
+    --json-data ".\软件测试-18-data.json" ^
+    --syllabus ".\templates\syllabus_template.md" ^
+    --output-dir ".\docs" ^
+    --subject "软件测试" ^
+    --verbose
+
+三、内联内容用法（无需中间文件）
+  .\mcp_wrapper.exe ^
+    --md-content "# 软件测试 大纲..." ^
+    --json-data-content "{\"teacher\":\"张三\", \"weeks\": 16}" ^
+    --output-dir ".\docs" ^
+    --subject "软件测试" ^
+    --verbose
+注：如果在 PowerShell 中写 JSON 字符串，请注意转义双引号（参考 README.txt 示例）。
+
+四、输出位置
+- docs：生成的 Word 教案（DOCX）
+- 日志输出在控制台（或 UI 的结果页中）
+
+五、常见问题
+- 文件未找到：确保大纲/JSON 文件名与路径正确，或放到 EXE 同目录以便自动发现。
+- 仍失败：可将 --verbose 输出给我们排查；也可先单独运行 build_word.exe 观察输出。
+
+补充：本目录附带的 start-teach-ui.bat / start-teach-ui.ps1 仅在存在 teach_ui.exe 的情况下才有意义；它们是 UI 版本的便捷启动脚本（若你将 teach_ui.exe 放到同目录即可使用）。

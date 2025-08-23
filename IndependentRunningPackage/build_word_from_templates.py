@@ -32,6 +32,8 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
+import argparse
+import traceback
 
 
 # ---------- 工具与解析 ----------
@@ -325,10 +327,19 @@ def unify_document_font_excluding(doc: Document, font_name: Optional[str], font_
 
 def find_input_files(src_dir: Path) -> tuple[Path, Path, Path | None]:
     """在独立运行包中优先从 data/ 目录寻找 MD 与 JSON；若未找到，再回落到脚本同级目录。"""
-    search_dirs = [
+    search_dirs = []
+    # 优先：PyInstaller 资源目录
+    try:
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            rr = Path(sys._MEIPASS).resolve()
+            search_dirs.extend([(rr / "data").resolve(), rr])
+    except Exception:
+        pass
+    # 其次：可执行/脚本所在目录
+    search_dirs.extend([
         (src_dir / "data").resolve(),  # 独立运行包的数据目录
         src_dir.resolve(),               # 脚本所在目录（向后兼容）
-    ]
+    ])
 
     # 先尝试精确示例名（若存在则优先）
     md_path = json_path = syllabus_path = None
@@ -380,7 +391,20 @@ def find_input_files(src_dir: Path) -> tuple[Path, Path, Path | None]:
 
 def find_docx_templates(src_dir: Path) -> tuple[Path, Path]:
     """优先在独立运行包的 templates/ 目录下寻找两份 docx 模板；若不存在，尝试在常见相对路径下查找。"""
-    candidates = [
+    candidates = []
+    # 优先：PyInstaller 资源目录
+    try:
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            rr = Path(sys._MEIPASS).resolve()
+            candidates.extend([
+                (rr / "templates").resolve(),
+                (rr / "templates" / "教案").resolve(),
+            ])
+    except Exception:
+        pass
+
+    # 其次：可执行/脚本所在目录及仓库相对路径
+    candidates.extend([
         src_dir.resolve(),
         (src_dir / "templates").resolve(),            # IndependentRunningPackage/templates
         (src_dir / "templates" / "教案").resolve(),   # 允许子目录教案
@@ -388,7 +412,8 @@ def find_docx_templates(src_dir: Path) -> tuple[Path, Path]:
         (src_dir / ".." / ".." / "templates" / "教案").resolve(),
         # UI/static/templates -> Generator/templates/教案（本仓库实际位置）
         (src_dir / ".." / ".." / ".." / "templates" / "教案").resolve(),
-    ]
+    ])
+
     for base in candidates:
         p1 = base / "教案-模板.docx"
         p2 = base / "课程教学教案-模板.docx"
@@ -595,44 +620,116 @@ def merge_docs(head_doc_path: Path, append_doc_path: Path, out_path: Path, font_
     head_doc.save(str(out_path))
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="生成教案 DOCX 的独立运行工具")
+    parser.add_argument("--md", help="标记值 MD 文件路径（教案模板标记值-*.md）", default=None)
+    parser.add_argument("--json-data", help="周次 JSON 数据路径（*-data.json 或 *-*-data.json）", default=None)
+    parser.add_argument("--syllabus", help="教学大纲 MD（可选）", default=None)
+    parser.add_argument("--head-tpl", help="教案头模板 docx（教案-模板.docx）", default=None)
+    parser.add_argument("--week-tpl", help="周表格模板 docx（课程教学教案-模板.docx）", default=None)
+    parser.add_argument("--output-dir", help="输出目录（默认：运行目录）", default=None)
+    parser.add_argument("--font-name", help="统一字体名称（覆盖占位配置）", default=None)
+    parser.add_argument("--font-size", help="统一字号（示例：12 或 12pt，覆盖占位配置）", default=None)
+    parser.add_argument("--subject", help="覆盖 ‘授课科目’（若占位未给或需强制指定）", default=None)
+    parser.add_argument("--stdout-json", action="store_true", help="以 JSON 结果输出到 stdout（便于上层程序解析）")
+    return parser.parse_args()
+
+
 def main() -> None:
-    src_dir = Path(__file__).parent.resolve()
-
-    # 1) 输入与模板
-    md_path, json_path, _syllabus = find_input_files(src_dir)
-    head_tpl, week_tpl = find_docx_templates(src_dir)
-
-    # 2) 映射与关键字段
-    base_mapping = parse_placeholder_md(str(md_path))
-    subject = (base_mapping.get("授课科目") or "").strip()
-    if not subject:
-        # 若 MD 未给，尝试从 JSON 内容推断
-        with open(json_path, 'r', encoding='utf-8') as f:
-            jd = json.load(f)
-        subject = (jd.get("授课科目") or "").strip()
-    if not subject:
-        raise RuntimeError("未在标记值MD或JSON中找到 ‘授课科目’")
-
-    # 3) 生成教案头
-    tmp_dir = src_dir / "_tmp_build"
-    head_doc = build_head_doc(head_tpl, dict(base_mapping), tmp_dir, subject)
-
-    # 4) 生成周次集合
-    weeks_doc = build_weeks_doc(week_tpl, dict(base_mapping), json_path, tmp_dir, subject)
-
-    # 5) 合并并统一字体（可从映射读取用户配置）
-    user_font_name = (base_mapping.get("统一字体名称") or "").strip() or None
-    user_font_size_pt = parse_font_size_pt(base_mapping.get("统一字号"))
-    final_doc = src_dir / f"教案-{subject}.docx"
-    merge_docs(head_doc, weeks_doc, final_doc, user_font_name, user_font_size_pt)
-
-    # 6) 清理临时产物
+    args = parse_args()
     try:
-        shutil.rmtree(tmp_dir)
-    except Exception:
-        pass
+        # 计算运行目录：兼容 PyInstaller 冻结环境
+        if getattr(sys, 'frozen', False):  # PyInstaller/py2exe 等
+            run_dir = Path(sys.executable).parent.resolve()
+        else:
+            run_dir = Path(__file__).parent.resolve()
 
-    print(f"[完成] 生成成功：{final_doc}")
+        # 输出目录
+        output_dir = Path(args.output_dir).resolve() if args.output_dir else run_dir
+
+        # 1) 输入与模板
+        md_path = Path(args.md).resolve() if args.md else None
+        json_path = Path(args.json_data).resolve() if getattr(args, "json_data", None) else None
+        syllabus_path = Path(args.syllabus).resolve() if args.syllabus else None
+        # 若未提供，按既有规则在运行目录内查找
+        if md_path is None or json_path is None:
+            f_md, f_json, f_syllabus = find_input_files(run_dir)
+            if md_path is None:
+                md_path = f_md
+            if json_path is None:
+                json_path = f_json
+            if syllabus_path is None:
+                syllabus_path = f_syllabus
+
+        head_tpl = Path(args.head_tpl).resolve() if args.head_tpl else None
+        week_tpl = Path(args.week_tpl).resolve() if args.week_tpl else None
+        if head_tpl is None or week_tpl is None:
+            auto_head, auto_week = find_docx_templates(run_dir)
+            if head_tpl is None:
+                head_tpl = auto_head
+            if week_tpl is None:
+                week_tpl = auto_week
+
+        # 2) 映射与关键字段
+        base_mapping = parse_placeholder_md(str(md_path))
+        # 覆盖映射：科目、字体
+        if args.subject:
+            base_mapping["授课科目"] = args.subject
+        if args.font_name:
+            base_mapping["统一字体名称"] = args.font_name
+        if args.font_size:
+            base_mapping["统一字号"] = args.font_size
+
+        subject = (base_mapping.get("授课科目") or "").strip()
+        if not subject:
+            # 若 MD 未给，尝试从 JSON 内容推断
+            with open(json_path, 'r', encoding='utf-8') as f:
+                jd = json.load(f)
+            subject = (jd.get("授课科目") or "").strip()
+        if not subject:
+            raise RuntimeError("未在标记值MD或JSON中找到 ‘授课科目’，且未通过 --subject 指定")
+
+        # 3) 生成教案头
+        tmp_dir = output_dir / "_tmp_build"
+        head_doc = build_head_doc(head_tpl, dict(base_mapping), tmp_dir, subject)
+
+        # 4) 生成周次集合
+        weeks_doc = build_weeks_doc(week_tpl, dict(base_mapping), json_path, tmp_dir, subject)
+
+        # 5) 合并并统一字体（可从映射读取用户配置）
+        user_font_name = (base_mapping.get("统一字体名称") or "").strip() or None
+        user_font_size_pt = parse_font_size_pt(base_mapping.get("统一字号"))
+        final_doc = output_dir / f"教案-{subject}.docx"
+        merge_docs(head_doc, weeks_doc, final_doc, user_font_name, user_font_size_pt)
+
+        # 6) 清理临时产物
+        try:
+            shutil.rmtree(tmp_dir)
+        except Exception:
+            pass
+
+        if args.stdout_json:
+            result = {
+                "ok": True,
+                "subject": subject,
+                "final_doc": str(final_doc),
+                "head_doc": str(head_doc),
+                "weeks_doc": str(weeks_doc),
+                "output_dir": str(output_dir),
+            }
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(f"[完成] 生成成功：{final_doc}")
+    except Exception as e:
+        if getattr(args, "stdout_json", False):
+            print(json.dumps({
+                "ok": False,
+                "error": str(e),
+                "trace": traceback.format_exc(),
+            }, ensure_ascii=False))
+        else:
+            print(f"[错误] {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -57,6 +57,11 @@
           <input type="text" id="exclude" name="exclude" placeholder="例如：ChatGPT、生成代码、过度理论化" />
         </div>
         <div class="form-group">
+          <label for="parts">教学大模块（可留空，逗号分隔）</label>
+          <textarea id="parts" name="parts" rows="6" placeholder="例如（Docker/虚拟化18周示例）：虚拟化与容器概念综述；虚拟机与容器对比，虚拟化软件与VM实操，Docker基础：架构/镜像/容器，Docker安装与基本命令（run/ps/logs/exec），镜像管理与Dockerfile（分层/构建/优化），容器网络与端口映射，多容器编排：Compose，数据持久化：Volume/Bind Mount，私有仓库与安全策略，应用打包与最佳实践（多阶段构建），容器化Web/DB部署案例，容器安全与权限控制，监控与日志，CI/CD与容器，云原生与K8s入门，K8s实践，复盘与综合实训，期末复习"></textarea>
+          <div class="hint">说明：此项决定大纲的章节骨架。留空则使用系统默认骨架（可能与课程不完全匹配）。</div>
+        </div>
+        <div class="form-group">
           <label for="features">教学大纲的功能说明（不排除项，可留空）</label>
           <textarea id="features" name="features" rows="8" placeholder="例如：强调项目驱动与企业真实场景；覆盖功能测试、接口测试、性能测试基础；强化用例设计与缺陷分析；包含至少2次综合实训与一次结课项目评审"></textarea>
         </div>
@@ -109,12 +114,25 @@
           </div>
         </div>
         
+        <!-- 新增：模型提供商与模型名、自定义网关 -->
         <div class="form-group">
-          <label for="model">大模型选择</label>
-          <select id="model" name="model">
-            <option value="deepseek-chat" selected>DeepSeek - deepseek-chat</option>
-            <option value="gpt-4o-mini">OpenAI - gpt-4o-mini</option>
+          <label for="provider">模型提供商</label>
+          <select id="provider" name="provider">
+            <option value="deepseek" selected>DeepSeek（OpenAI 兼容）</option>
+            <option value="openai">OpenAI 官方</option>
+            <option value="siliconflow">硅基流动（OpenAI 兼容）</option>
+            <option value="custom">自定义（OpenAI 兼容网关）</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label for="model">模型名称</label>
+          <input type="text" id="model" name="model" value="deepseek-chat" placeholder="例如：deepseek-chat / gpt-4o-mini / 参见提供商文档" required />
+          <div class="hint" id="model-hint">DeepSeek 示例：deepseek-chat；OpenAI 示例：gpt-4o-mini；硅基流动请在其控制台查看模型名。</div>
+        </div>
+        <div class="form-group" id="baseurl-group" style="display:none">
+          <label for="base_url">自定义 Base URL（OpenAI 兼容）</label>
+          <input type="text" id="base_url" name="base_url" placeholder="例如：https://api.siliconflow.cn 或你的企业网关" />
+          <div class="hint">说明：当选择“自定义”或“硅基流动”时会设置 Base URL；DeepSeek 自动使用 https://api.deepseek.com；OpenAI 官方无需设置。</div>
         </div>
         <div class="form-group">
           <label for="api_key">API Key</label>
@@ -122,6 +140,7 @@
         </div>
         <div class="actions">
           <button type="submit">生成文档</button>
+          <button type="submit" name="do" value="cleanup" style="background:#ef4444" formnovalidate>清理当前课程输出</button>
         </div>
       </form>
     </div>
@@ -174,6 +193,51 @@
            classSize.reportValidity();
          }
        });
+     });
+
+     // 新增：根据提供商切换默认模型与 Base URL
+     function updateProviderUI() {
+       const provider = document.getElementById('provider');
+       const model = document.getElementById('model');
+       const modelHint = document.getElementById('model-hint');
+       const baseUrlGroup = document.getElementById('baseurl-group');
+       const baseUrl = document.getElementById('base_url');
+       const pv = provider.value;
+       baseUrlGroup.style.display = 'none';
+       if (pv === 'deepseek') {
+         model.placeholder = '例如：deepseek-chat';
+         if (!model.value) model.value = 'deepseek-chat';
+         baseUrl.value = '';
+       } else if (pv === 'openai') {
+         model.placeholder = '例如：gpt-4o-mini / o3-mini / gpt-4.1-mini';
+         if (!model.value) model.value = 'gpt-4o-mini';
+         baseUrl.value = '';
+       } else if (pv === 'siliconflow') {
+         model.placeholder = '请在「硅基流动」控制台查看模型名（OpenAI 兼容）';
+         if (!model.value || model.value === 'deepseek-chat' || model.value === 'gpt-4o-mini') model.value = '';
+         baseUrlGroup.style.display = '';
+         if (!baseUrl.value) baseUrl.value = 'https://api.siliconflow.cn';
+       } else if (pv === 'custom') {
+         model.placeholder = '请输入 OpenAI 兼容网关的模型名';
+         baseUrlGroup.style.display = '';
+         // 保留用户自填 base_url
+       }
+       if (pv === 'deepseek') {
+         modelHint.textContent = 'DeepSeek 示例：deepseek-chat；OpenAI 示例：gpt-4o-mini；硅基流动请在其控制台查看模型名。';
+       } else if (pv === 'openai') {
+         modelHint.textContent = 'OpenAI 示例：gpt-4o-mini / o3-mini；按需在官网查看最新可用模型名。';
+       } else if (pv === 'siliconflow') {
+         modelHint.textContent = '硅基流动：设置 Base URL 后，模型名以其控制台为准（OpenAI 兼容）。';
+       } else {
+         modelHint.textContent = '自定义：请输入你的 OpenAI 兼容网关模型名与 Base URL。';
+       }
+     }
+     document.addEventListener('DOMContentLoaded', function() {
+       const provider = document.getElementById('provider');
+       if (provider) {
+         provider.addEventListener('change', updateProviderUI);
+         updateProviderUI();
+       }
      });
   </script>
 </body>
