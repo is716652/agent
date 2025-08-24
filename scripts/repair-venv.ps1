@@ -1,24 +1,26 @@
 <#
-修复/重建虚拟环境脚本（Windows/PowerShell）
+VENV repair/recreate script (Windows/PowerShell)
 
-用途：当项目迁移到新电脑后，VENV\agent-env\pyvenv.cfg 中记录的 Python 安装路径与版本
-      与新电脑不一致，导致虚拟环境无法激活。本脚本用于“修复 pyvenv.cfg”或“删除重建 venv”。
+Purpose:
+- When the project is moved to a new machine, the recorded Python path/version in
+  VENV\agent-env\pyvenv.cfg may not match the new Python installation, causing venv activation to fail.
+- This script fixes pyvenv.cfg paths or recreates the venv.
 
-用法示例：
-  1) 仅修复路径（默认）：
+Usage examples:
+  1) Repair paths only (default):
      powershell -NoProfile -ExecutionPolicy Bypass -File scripts/repair-venv.ps1
 
-  2) 指定 Python 解释器路径修复：
+  2) Repair with a specified Python executable:
      powershell -NoProfile -ExecutionPolicy Bypass -File scripts/repair-venv.ps1 -PythonExe "C:\\Users\\me\\Python\\Python312\\python.exe"
 
-  3) 重建虚拟环境（推荐在主/次版本不一致时）：
+  3) Recreate the venv (recommended when Python major/minor versions differ):
      powershell -NoProfile -ExecutionPolicy Bypass -File scripts/repair-venv.ps1 -Recreate -Force
 
-参数：
-  -VenvPath   默认 "VENV\\agent-env"
-  -PythonExe  指定用于修复/重建的 Python 解释器路径
-  -Recreate   直接删除并重建虚拟环境
-  -Force      删除重建时跳过确认；或在版本不一致时继续尝试修复
+Parameters:
+  -VenvPath   default "VENV\\agent-env"
+  -PythonExe  specify Python interpreter path
+  -Recreate   delete and recreate the virtual environment
+  -Force      skip confirmation when recreating; or continue even when versions differ
 #>
 
 param(
@@ -31,7 +33,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Resolve-RepoRoot {
-  if ($PSScriptRoot) { return (Resolve-Path (Join-Path $PSScriptRoot "..")).Path }
+  if ($PSScriptRoot) { return (Resolve-Path (Join-Path $PSScriptRoot ".." )).Path }
   return (Get-Location).Path
 }
 
@@ -47,7 +49,7 @@ function Find-Python {
   foreach($c in $candidates){
     try { $out = & $c; if ($LASTEXITCODE -eq 0 -and $out) { return $out.Trim() } } catch {}
   }
-  throw "未找到可用的 Python 解释器，请使用 -PythonExe 指定路径"
+  throw "No usable Python interpreter found. Please pass -PythonExe to specify one."
 }
 
 $repoRoot = Resolve-RepoRoot
@@ -64,31 +66,31 @@ if (!(Test-Path $venvFull)) { $Recreate = $true }
 if ($Recreate) {
   if (Test-Path $venvFull) {
     if (-not $Force) {
-      Write-Host "将删除并重建虚拟环境: $venvFull (使用 -Force 跳过确认)" -ForegroundColor Yellow
-      $yn = Read-Host "确认删除? (y/N)"
-      if ($yn.ToLower() -ne "y") { throw "已取消" }
+      Write-Host "The virtual environment will be deleted and recreated: $venvFull (use -Force to skip confirm)" -ForegroundColor Yellow
+      $yn = Read-Host "Confirm delete? (y/N)"
+      if ($yn.ToLower() -ne "y") { throw "Cancelled" }
     }
     Remove-Item -Recurse -Force $venvFull
   }
   & $python -m venv $venvFull
-  if ($LASTEXITCODE -ne 0) { throw "创建 venv 失败" }
-  $venvPython = Join-Path $venvFull "Scripts\\python.exe"
+  if ($LASTEXITCODE -ne 0) { throw "Failed to create venv" }
+  $venvPython = Join-Path $venvFull "Scripts\python.exe"
   & $venvPython -m pip install -U pip
   if (Test-Path (Join-Path $repoRoot "requirements.txt")) {
     & $venvPython -m pip install -r (Join-Path $repoRoot "requirements.txt")
   }
-  Write-Host "虚拟环境已重建并安装依赖：$venvFull" -ForegroundColor Green
+  Write-Host "Venv recreated and dependencies installed: $venvFull" -ForegroundColor Green
   exit 0
 }
 
-if (!(Test-Path $pyvenvCfg)) { throw "未找到 $pyvenvCfg，请使用 -Recreate 重建" }
+if (!(Test-Path $pyvenvCfg)) { throw "Not found: $pyvenvCfg, please use -Recreate to rebuild venv" }
 
-# 读取现有配置
+# Read existing config
 $cfg = Get-Content $pyvenvCfg -Raw
 $lines = $cfg -split "`r?`n"
 $dict = @{}
 foreach($line in $lines){
-  if ($line -match "^\s*([^#][^=]+?)\s*=\s*(.*)$") {
+  if ($line -match '^\s*([^#][^=]+?)\s*=\s*(.*)$') {
     $k=$matches[1].Trim(); $v=$matches[2].Trim(); $dict[$k]=$v
   }
 }
@@ -96,11 +98,11 @@ $oldVersion = $dict["version"]
 $oldMM = if ($oldVersion) { $oldVersion -replace '^(\d+\.\d+).*','$1' } else { "" }
 
 if ($oldMM -and $oldMM -ne $newMM) {
-  Write-Warning "虚拟环境 Python 主版本不一致（旧: $oldVersion, 新: $newVersion）。推荐使用 -Recreate 重建。"
-  if (-not $Force) { throw "请使用 -Recreate -Force 进行重建" }
+  Write-Warning "Python major/minor version mismatch (old: $oldVersion, new: $newVersion). It is recommended to use -Recreate."
+  if (-not $Force) { throw "Please run with -Recreate -Force to rebuild the venv" }
 }
 
-# 写回新的路径/版本
+# Write back new paths/versions
 $dict["home"] = $newHome
 $dict["executable"] = $python
 $dict["version"] = $newVersion
@@ -108,7 +110,7 @@ $dict["command"] = "$python -m venv $venvFull"
 
 $newLines = @()
 foreach($line in $lines){
-  if ($line -match "^\s*([^#][^=]+?)\s*=\s*(.*)$") {
+  if ($line -match '^\s*([^#][^=]+?)\s*=\s*(.*)$') {
     $k=$matches[1].Trim()
     if ($dict.ContainsKey($k)) {
       $newLines += "$k = $($dict[$k])"
@@ -122,14 +124,14 @@ foreach($line in $lines){
 }
 foreach($k in $dict.Keys){ $newLines += "$k = $($dict[$k])" }
 
-# 保存（使用 ASCII/CRLF）
+# Save (ASCII/CRLF)
 Set-Content -Path $pyvenvCfg -Value (($newLines -join "`r`n") + "`r`n") -Encoding ascii
 
-# 简单验证
-$venvPython = Join-Path $venvFull "Scripts\\python.exe"
+# Basic validation
+$venvPython = Join-Path $venvFull "Scripts\python.exe"
 if (!(Test-Path $venvPython)) {
-  Write-Warning "未找到 $venvPython；若修复后仍不可用，请使用 -Recreate 重建。"
+  Write-Warning "Not found: $venvPython. If activation still fails, please run with -Recreate."
   exit 1
 }
 & $venvPython -c "import sys;print('VENV OK:', sys.executable)"
-Write-Host "已修复 pyvenv.cfg。若仍无法激活，请使用 -Recreate 重建。" -ForegroundColor Green
+Write-Host "pyvenv.cfg repaired. If activation still fails, please run with -Recreate." -ForegroundColor Green
